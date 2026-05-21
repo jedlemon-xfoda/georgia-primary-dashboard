@@ -253,10 +253,22 @@ export default function RolloffTab() {
       if (r.total > b.topT) { b.topT = r.total; b.topRaceT = r.office }
     }
 
+    // Ballot-sequence baselines: the top statewide R/D race anchors the full ballot.
+    // Nonpartisan/judicial races appear after party questions on the actual ballot and
+    // are traversed by every partisan voter — they must be measured against the same
+    // top anchor, not against a separate nonpartisan pool top.
+    const seqBaseR = validOffices.filter(r => r.scope === 'statewide').reduce((m, r) => Math.max(m, r.R), 0)
+    const seqBaseD = validOffices.filter(r => r.scope === 'statewide').reduce((m, r) => Math.max(m, r.D), 0)
+
     const result = [...validOffices]
       .sort((a, b) => b.total - a.total)
       .map(row => {
         const b = scopeBaselines.get(row.scopeKey)
+        const isNonpartisan = row.R === 0 && row.D === 0 && row.N > 0
+        // For partisan offices use their party votes; for nonpartisan use N votes as proxy
+        // for the votes a partisan voter would have cast continuing down the ballot.
+        const rSeqVotes = row.R > 0 ? row.R : isNonpartisan ? row.N : 0
+        const dSeqVotes = row.D > 0 ? row.D : isNonpartisan ? row.N : 0
         return {
           ...row,
           shortOffice:  row.office.replace('U.S. ', '').replace('Secretary of ', 'SoS ').slice(0, 18),
@@ -264,6 +276,9 @@ export default function RolloffTab() {
           dRolloff:     row.D > 0 && b.topD > 0 ? (1 - row.D / b.topD) * 100 : null,
           nRolloff:     row.N > 0 && b.topN > 0 ? (1 - row.N / b.topN) * 100 : null,
           totalRolloff: b.topT > 0 ? (1 - row.total / b.topT) * 100 : 0,
+          // Ballot-sequence roll-off: continuous from top partisan race through full ballot
+          rSeqRolloff:  seqBaseR > 0 && rSeqVotes > 0 ? (1 - rSeqVotes / seqBaseR) * 100 : null,
+          dSeqRolloff:  seqBaseD > 0 && dSeqVotes > 0 ? (1 - dSeqVotes / seqBaseD) * 100 : null,
         }
       })
 
@@ -350,7 +365,7 @@ export default function RolloffTab() {
 
   // ── Presentation-layer derivations (no new data calculations) ───────────────
 
-  const rolloffKey = party === 'R' ? 'rRolloff' : party === 'D' ? 'dRolloff' : 'totalRolloff'
+  const rolloffKey   = party === 'R' ? 'rSeqRolloff' : party === 'D' ? 'dSeqRolloff' : 'totalRolloff'
   const rolloffLabel = party === 'R' ? 'R Ballot Roll-Off' : party === 'D' ? 'D Ballot Roll-Off' : 'Total Roll-Off'
 
   // Category options with race counts — scoped to the selected party + scope
@@ -397,16 +412,21 @@ export default function RolloffTab() {
     return displayLimit === 'all' ? filteredPool : filteredPool.slice(0, Number(displayLimit))
   }, [filteredPool, displayLimit])
 
-  // When party === 'Both', split into independent ballot universes so R and D are never compared.
+  // When party === 'Both', render two complete ballot sequences.
+  // Nonpartisan/judicial races (N>0, R=0, D=0) are appended to both sequences because
+  // every partisan voter continues into the nonpartisan section after party questions.
   const limit = displayLimit === 'all' ? Infinity : Number(displayLimit)
   const rPool = party === 'Both'
-    ? filteredPool.filter(r => r.R > 0).sort((a, b) => (b.rRolloff ?? -1) - (a.rRolloff ?? -1)).slice(0, limit)
+    ? filteredPool
+        .filter(r => r.R > 0 || (r.R === 0 && r.D === 0 && r.N > 0))
+        .sort((a, b) => (b.rSeqRolloff ?? -1) - (a.rSeqRolloff ?? -1))
+        .slice(0, limit)
     : []
   const dPool = party === 'Both'
-    ? filteredPool.filter(r => r.D > 0).sort((a, b) => (b.dRolloff ?? -1) - (a.dRolloff ?? -1)).slice(0, limit)
-    : []
-  const nPool = party === 'Both'
-    ? filteredPool.filter(r => r.N > 0 && r.R === 0 && r.D === 0).sort((a, b) => (b.nRolloff ?? -1) - (a.nRolloff ?? -1)).slice(0, limit)
+    ? filteredPool
+        .filter(r => r.D > 0 || (r.R === 0 && r.D === 0 && r.N > 0))
+        .sort((a, b) => (b.dSeqRolloff ?? -1) - (a.dSeqRolloff ?? -1))
+        .slice(0, limit)
     : []
 
   const insights = useMemo(() => {
@@ -570,9 +590,8 @@ export default function RolloffTab() {
             {party === 'Both' ? (
               <>
                 {[
-                  { label: 'Republican Ballot Roll-Off', pool: rPool, key: 'rRolloff', accent: '#ef4444' },
-                  { label: 'Democratic Ballot Roll-Off', pool: dPool, key: 'dRolloff', accent: '#3b82f6' },
-                  ...(nPool.length > 0 ? [{ label: 'Nonpartisan / Judicial Roll-Off', pool: nPool, key: 'nRolloff', accent: '#a78bfa' }] : []),
+                  { label: 'Republican Ballot Roll-Off', pool: rPool, key: 'rSeqRolloff', accent: '#ef4444' },
+                  { label: 'Democratic Ballot Roll-Off', pool: dPool, key: 'dSeqRolloff', accent: '#3b82f6' },
                 ].map(({ label, pool, key, accent }) => (
                   <div key={key} className="card xl:col-span-2">
                     <div className="flex items-center justify-between mb-1">
@@ -606,13 +625,11 @@ export default function RolloffTab() {
                       </ResponsiveContainer>
                     )}
                     <p className="text-xs text-slate-500 mt-2">
-                      Roll-off % = (top race votes − race votes) / top race votes × 100. Races within this ballot universe only — Republican, Democratic, and Nonpartisan contests are never compared against each other.
+                      Roll-off % = (top race votes − race votes) / top race votes × 100. Nonpartisan/judicial races are scored against the same top partisan anchor — reflecting continuous traversal of the full ballot.
                     </p>
-                    {key === 'nRolloff' && (
-                      <p className="text-xs text-amber-600/70 mt-1">
-                        ⚠ {GEORGIA_NONPARTISAN_NOTE}
-                      </p>
-                    )}
+                    <p className="text-xs text-amber-600/70 mt-1">
+                      ⚠ {GEORGIA_NONPARTISAN_NOTE}
+                    </p>
                   </div>
                 ))}
               </>
@@ -651,7 +668,7 @@ export default function RolloffTab() {
                   </ResponsiveContainer>
                 )}
                 <p className="text-xs text-slate-500 mt-2">
-                  Roll-off % = (top race votes − race votes) / top race votes × 100. Roll-off compares contests with similar voter eligibility — statewide races are never compared against district-limited races.
+                  Roll-off % = (top race votes − race votes) / top race votes × 100. Nonpartisan/judicial races are scored against the top partisan race — reflecting continuous traversal of the full ballot.
                   {displayData.length < filteredPool.length && (
                     <span className="text-slate-600 ml-1">
                       Showing {displayData.length} of {filteredPool.length} contests — increase the limit to see more.
