@@ -107,6 +107,10 @@ function classifyScope(office) {
     return { scope: 'state_senate', scopeKey: dn ? `state_senate:${dn}` : 'state_senate' }
 
   // ── Judicial — broad pattern before statewide/other matching ────────────────
+  // "Clerk of Superior Court" is a partisan administrative officer, not a judge.
+  // Guard it before the pattern so "superior"/"court" don't misfire.
+  if (/\bclerk\s+of\b/i.test(office))
+    return { scope: 'other', scopeKey: 'other' }
   const judicialPattern =
     /(judge|justice|court|appeal|magistrate|probate|superior|juvenile|state court|supreme)/i
   if (judicialPattern.test(office))

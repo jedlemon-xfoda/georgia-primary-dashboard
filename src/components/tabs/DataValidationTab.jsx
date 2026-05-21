@@ -16,7 +16,8 @@ function normalizeOfficeName(office) {
 function classifyScope(office) {
   if (!office) return 'other'
   const lc = office.toLowerCase()
-  if (/(judge|justice|court|appeal|judicial|magistrate|probate|superior|juvenile|supreme)/i.test(office)) return 'judicial'
+  if (/\bclerk\s+of\b/i.test(office)) return 'other'
+  if (/(judge|justice|court|appeal|magistrate|probate|superior|juvenile|state court|supreme)/i.test(office)) return 'judicial'
   if (lc.includes('governor') || lc.includes('lieutenant governor') || lc.includes('attorney general') ||
       lc.includes('secretary of state') || lc.includes('treasurer') || lc.includes('superintendent') ||
       lc.includes('commissioner of agriculture') || lc.includes('agriculture commissioner') ||
