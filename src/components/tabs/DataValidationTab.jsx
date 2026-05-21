@@ -142,10 +142,15 @@ export default function DataValidationTab() {
   const statewideR = useMemo(() => toStatewideList(buildOfficeMap(recs, 'Republican')), [recs])
   const statewideD = useMemo(() => toStatewideList(buildOfficeMap(recs, 'Democratic')), [recs])
 
-  // Party-universe audit — surface any blank-party interpretation assumptions
-  const partyAudit = useMemo(() =>
-    auditPartyUniverses(recs, { sourceNote: GEORGIA_NONPARTISAN_NOTE })
-  , [recs])
+  // Party-universe audit — scoped to records that feed the current view only.
+  // Blank-party records go to the nonpartisan (N) pool; they never enter R or D
+  // calculations, so they only affect the audit when Both Ballots is selected.
+  const partyAudit = useMemo(() => {
+    let auditRecs = recs
+    if (ballot === 'R') auditRecs = recs.filter(r => r.candidateParty === 'Republican')
+    if (ballot === 'D') auditRecs = recs.filter(r => r.candidateParty === 'Democratic')
+    return auditPartyUniverses(auditRecs, { sourceNote: GEORGIA_NONPARTISAN_NOTE })
+  }, [recs, ballot])
 
   if (!hasData) return <EmptyState />
 
