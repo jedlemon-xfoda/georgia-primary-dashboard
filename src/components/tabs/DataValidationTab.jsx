@@ -3,6 +3,7 @@ import useElectionStore from '../../store/electionStore.js'
 import EmptyState from '../EmptyState.jsx'
 import { fmt } from '../../utils/formatters.js'
 import { isCandidateRecord } from '../../utils/candidateFilter.js'
+import { auditPartyUniverses, GEORGIA_NONPARTISAN_NOTE } from '../../utils/partyClassifier.js'
 
 function normalizeOfficeName(office) {
   if (!office) return office
@@ -141,6 +142,11 @@ export default function DataValidationTab() {
   const statewideR = useMemo(() => toStatewideList(buildOfficeMap(recs, 'Republican')), [recs])
   const statewideD = useMemo(() => toStatewideList(buildOfficeMap(recs, 'Democratic')), [recs])
 
+  // Party-universe audit — surface any blank-party interpretation assumptions
+  const partyAudit = useMemo(() =>
+    auditPartyUniverses(recs, { sourceNote: GEORGIA_NONPARTISAN_NOTE })
+  , [recs])
+
   if (!hasData) return <EmptyState />
 
   const showR = ballot === 'Both' || ballot === 'R'
@@ -154,6 +160,51 @@ export default function DataValidationTab() {
           Spot-check dashboard results against your source files. Roll-off is computed separately per ballot — Republican contests are never compared against Democratic contests.
         </p>
       </div>
+
+      {/* Data-quality flag — visible when blank-party records are present */}
+      {partyAudit.counts.inferred > 0 && (
+        <div className="card mb-4 border-amber-700/40 bg-amber-900/10 p-4">
+          <div className="flex items-start gap-2">
+            <span className="text-amber-400 font-bold text-sm mt-0.5">⚠</span>
+            <div>
+              <p className="text-sm font-semibold text-amber-300">
+                Ballot Universe Interpretation Applied
+              </p>
+              <p className="text-xs text-amber-400/80 mt-1">
+                {partyAudit.counts.inferred.toLocaleString()} record{partyAudit.counts.inferred !== 1 ? 's' : ''} in this selection have a blank or missing party field.
+                These are classified as <strong>Nonpartisan</strong> based on the following assumption:
+              </p>
+              {partyAudit.bases.map((b, i) => (
+                <p key={i} className="text-xs text-amber-500/70 mt-1 font-mono pl-2 border-l border-amber-700">
+                  {b}
+                </p>
+              ))}
+              <p className="text-xs text-amber-600/60 mt-2">
+                This assumption may not apply to other states or election types. Review source files to confirm.
+                {partyAudit.counts.low > 0 && (
+                  <span className="ml-1 text-red-400/70">
+                    {partyAudit.counts.low.toLocaleString()} additional record{partyAudit.counts.low !== 1 ? 's' : ''} could not be classified and are marked Unknown.
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {partyAudit.counts.low > 0 && partyAudit.counts.inferred === 0 && (
+        <div className="card mb-4 border-red-700/40 bg-red-900/10 p-4">
+          <div className="flex items-start gap-2">
+            <span className="text-red-400 font-bold text-sm mt-0.5">✕</span>
+            <div>
+              <p className="text-sm font-semibold text-red-300">Unknown Ballot Universe</p>
+              <p className="text-xs text-red-400/80 mt-1">
+                {partyAudit.counts.low.toLocaleString()} record{partyAudit.counts.low !== 1 ? 's' : ''} have a blank party field with no corroborating context to determine ballot universe. These are excluded from roll-off calculations. Review source files manually.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="card mb-6">

@@ -7,6 +7,7 @@ import useElectionStore from '../../store/electionStore.js'
 import EmptyState from '../EmptyState.jsx'
 import { fmt } from '../../utils/formatters.js'
 import { isCandidateRecord } from '../../utils/candidateFilter.js'
+import { GEORGIA_NONPARTISAN_NOTE } from '../../utils/partyClassifier.js'
 
 const GRID = { stroke: '#1e2d4f', strokeDasharray: '3 3' }
 const AXIS = { fill: '#64748b', fontSize: 11 }
@@ -603,6 +604,11 @@ export default function RolloffTab() {
                     <p className="text-xs text-slate-500 mt-2">
                       Roll-off % = (top race votes − race votes) / top race votes × 100. Races within this ballot universe only — Republican, Democratic, and Nonpartisan contests are never compared against each other.
                     </p>
+                    {key === 'nRolloff' && (
+                      <p className="text-xs text-amber-600/70 mt-1">
+                        ⚠ {GEORGIA_NONPARTISAN_NOTE}
+                      </p>
+                    )}
                   </div>
                 ))}
               </>
