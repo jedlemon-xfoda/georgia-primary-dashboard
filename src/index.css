@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: #04080f;
+    color: #e2e8f0;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #070d1a; }
+  ::-webkit-scrollbar-thumb { background: #273d65; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #34507c; }
+}
+
+@layer components {
+  .card {
+    @apply bg-navy-800 border border-navy-500 rounded-xl p-5;
+  }
+
+  .card-sm {
+    @apply bg-navy-800 border border-navy-500 rounded-lg p-4;
+  }
+
+  .stat-label {
+    @apply text-xs font-medium text-slate-400 uppercase tracking-wider;
+  }
+
+  .stat-value {
+    @apply text-2xl font-bold text-slate-100;
+  }
+
+  .badge-green {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-900/60 text-emerald-300 border border-emerald-700/50;
+  }
+
+  .badge-yellow {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-amber-900/60 text-amber-300 border border-amber-700/50;
+  }
+
+  .badge-red {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-red-900/60 text-red-300 border border-red-700/50;
+  }
+
+  .tab-btn {
+    @apply px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-150 whitespace-nowrap;
+  }
+
+  .tab-btn-active {
+    @apply bg-indigo-600 text-white shadow-lg shadow-indigo-900/40;
+  }
+
+  .tab-btn-inactive {
+    @apply text-slate-400 hover:text-slate-200 hover:bg-navy-700;
+  }
+
+  .filter-select {
+    @apply bg-navy-700 border border-navy-500 text-slate-200 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500;
+  }
+
+  .section-title {
+    @apply text-base font-semibold text-slate-200 mb-4;
+  }
+}
+
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: #0c1428 !important;
+  border: 1px solid #273d65 !important;
+  border-radius: 8px !important;
+}
+
+.recharts-default-tooltip .recharts-tooltip-label {
+  color: #94a3b8 !important;
+  font-size: 12px !important;
+}
+
+.county-path {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.county-path:hover {
+  opacity: 0.85;
+  stroke-width: 1.5px !important;
+}

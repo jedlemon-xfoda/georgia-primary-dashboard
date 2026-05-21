@@ -1,0 +1,97 @@
+{
+  "_comment": "Georgia SOS election fetch configuration for fetch-sos.mjs",
+  "_instructions": [
+    "1. Find a Clarity election ID at: https://results.enr.clarityelections.com/GA/",
+    "2. The ID is the number in the URL: /GA/{ID}/",
+    "3. Set 'enabled: true' for elections you want to fetch",
+    "4. Run: node scripts/fetch-sos.mjs",
+    "",
+    "clarityStatus values:",
+    "  'verified'   — ID confirmed against live Clarity URL",
+    "  'estimated'  — ID from known pattern, needs verification",
+    "  'needs_configuration' — ID unknown, see sosPage for source"
+  ],
+  "outputDir": "public/data/elections",
+  "elections": [
+    {
+      "id": "ga-2024-pp",
+      "year": 2024,
+      "label": "2024 Georgia Presidential Preference Primary (March 12)",
+      "type": "Presidential Primary",
+      "clarityId": "129530",
+      "clarityStatus": "estimated",
+      "sosPage": "https://results.enr.clarityelections.com/GA/",
+      "officialStatus": "Official",
+      "enabled": true
+    },
+    {
+      "id": "ga-2022-sp",
+      "year": 2022,
+      "label": "2022 Georgia State Primary (May 24)",
+      "type": "Primary",
+      "clarityId": "114709",
+      "clarityStatus": "estimated",
+      "sosPage": "https://results.enr.clarityelections.com/GA/",
+      "officialStatus": "Official",
+      "enabled": true
+    },
+    {
+      "id": "ga-2022-ge",
+      "year": 2022,
+      "label": "2022 Georgia General Election (November 8)",
+      "type": "General",
+      "clarityId": "116044",
+      "clarityStatus": "estimated",
+      "sosPage": "https://results.enr.clarityelections.com/GA/",
+      "officialStatus": "Official",
+      "enabled": true
+    },
+    {
+      "id": "ga-2020-pp",
+      "year": 2020,
+      "label": "2020 Georgia Presidential Preference Primary (March 24)",
+      "type": "Presidential Primary",
+      "clarityId": "104655",
+      "clarityStatus": "estimated",
+      "sosPage": "https://results.enr.clarityelections.com/GA/",
+      "officialStatus": "Official",
+      "enabled": true
+    },
+    {
+      "id": "ga-2020-ge",
+      "year": 2020,
+      "label": "2020 Georgia General Election (November 3)",
+      "type": "General",
+      "clarityId": "105369",
+      "clarityStatus": "estimated",
+      "sosPage": "https://results.enr.clarityelections.com/GA/",
+      "officialStatus": "Official",
+      "enabled": true
+    },
+    {
+      "id": "ga-2018-sp",
+      "year": 2018,
+      "label": "2018 Georgia State Primary (May 22)",
+      "type": "Primary",
+      "clarityId": null,
+      "clarityStatus": "needs_configuration",
+      "sosPage": "https://elections.sos.ga.gov/Elections/electionresults.do",
+      "officialStatus": "Historical",
+      "enabled": false
+    },
+    {
+      "id": "ga-2016-pp",
+      "year": 2016,
+      "label": "2016 Georgia Presidential Preference Primary (March 1)",
+      "type": "Presidential Primary",
+      "clarityId": null,
+      "clarityStatus": "needs_configuration",
+      "sosPage": "https://elections.sos.ga.gov/Elections/electionresults.do",
+      "officialStatus": "Historical",
+      "enabled": false
+    }
+  ],
+  "userAgent": "Georgia-Primary-Dashboard/1.0 (data pipeline; contact: see project README)",
+  "requestDelayMs": 1500,
+  "retryAttempts": 3
+}

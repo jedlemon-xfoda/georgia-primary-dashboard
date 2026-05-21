@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "description": "Georgia Primary Intelligence Dashboard — Pre-fetched Data Manifest",
+  "lastUpdated": null,
+  "note": "This file is populated by running: node scripts/run-pipeline.mjs. Until then it lists no available datasets.",
+  "elections": [],
+  "context": [],
+  "instructions": {
+    "fetch_sos": "Run `node scripts/fetch-sos.mjs` to download Georgia SOS results. Requires Node.js 18+.",
+    "fetch_census": "Run `node scripts/fetch-census.mjs` to download Census population data.",
+    "full_pipeline": "Run `node scripts/run-pipeline.mjs` to execute all fetch steps and update this manifest."
+  }
+}
