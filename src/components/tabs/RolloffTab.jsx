@@ -372,11 +372,13 @@ export default function RolloffTab() {
   const availableCategories = useMemo(() => {
     const counts = {}
     for (const r of rolloffData) {
-      // Nonpartisan races (N>0, R=0, D=0) appear on all ballots — never exclude them by party.
       const isNonpartisan = r.R === 0 && r.D === 0 && r.N > 0
-      if (party === 'R' && r.R === 0 && !isNonpartisan) continue
-      if (party === 'D' && r.D === 0 && !isNonpartisan) continue
-      if (selectedScope !== 'All' && r.scope !== selectedScope) continue
+      // Nonpartisan races are part of every ballot's sequence — bypass scope filter.
+      if (!isNonpartisan) {
+        if (party === 'R' && r.R === 0) continue
+        if (party === 'D' && r.D === 0) continue
+        if (selectedScope !== 'All' && r.scope !== selectedScope) continue
+      }
       const cat = classifyOffice(r.office)
       if (!includeQuestions && cat === 'Referenda/Questions') continue
       counts[cat] = (counts[cat] || 0) + 1
@@ -393,11 +395,13 @@ export default function RolloffTab() {
   const filteredPool = useMemo(() => {
     let data = rolloffData
       .filter(r => {
-        if (selectedScope !== 'All' && r.scope !== selectedScope) return false
-        // Nonpartisan races (N>0, R=0, D=0) appear on all ballots — pass them through any ballot filter.
         const isNonpartisan = r.R === 0 && r.D === 0 && r.N > 0
-        if (party === 'R') return r.R > 0 || isNonpartisan
-        if (party === 'D') return r.D > 0 || isNonpartisan
+        // Nonpartisan/judicial races are part of every ballot's traversal sequence.
+        // They bypass the scope filter so they always appear after the partisan section.
+        if (isNonpartisan) return true
+        if (selectedScope !== 'All' && r.scope !== selectedScope) return false
+        if (party === 'R') return r.R > 0
+        if (party === 'D') return r.D > 0
         return true
       })
       .map(r => ({ ...r, category: classifyOffice(r.office), displayOffice: shortLabel(r.office) }))

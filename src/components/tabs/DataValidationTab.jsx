@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, Fragment } from 'react'
 import useElectionStore from '../../store/electionStore.js'
 import EmptyState from '../EmptyState.jsx'
 import { fmt } from '../../utils/formatters.js'
@@ -29,21 +29,30 @@ function classifyScope(office) {
   return 'other'
 }
 
-function buildOfficeMap(recs, partyFilter) {
-  const map = new Map()
+// Builds the full ballot sequence for one partisan ballot:
+//   1. Partisan races (partyFilter only), sorted descending by votes
+//   2. Nonpartisan/judicial races (not R, not D), sorted descending by votes
+// Mirrors actual ballot traversal: partisan section → party questions (excluded) → nonpartisan section.
+function buildBallotSequence(recs, partyFilter) {
+  const partisanMap    = new Map()
+  const nonpartisanMap = new Map()
   for (const r of recs) {
-    if (r.candidateParty !== partyFilter) continue
     const key = normalizeOfficeName(r.office)
-    map.set(key, (map.get(key) || 0) + (r.votes || 0))
+    if (r.candidateParty === partyFilter) {
+      partisanMap.set(key, (partisanMap.get(key) || 0) + (r.votes || 0))
+    } else if (r.candidateParty !== 'Republican' && r.candidateParty !== 'Democratic') {
+      nonpartisanMap.set(key, (nonpartisanMap.get(key) || 0) + (r.votes || 0))
+    }
   }
-  return map
-}
-
-function toStatewideList(map) {
-  return [...map.entries()]
-    .filter(([office, total]) => total > 0 && classifyScope(office) === 'statewide')
-    .map(([office, total]) => ({ office, total }))
+  const partisan = [...partisanMap.entries()]
+    .filter(([, total]) => total > 0)
+    .map(([office, total]) => ({ office, total, section: 'partisan' }))
     .sort((a, b) => b.total - a.total)
+  const nonpartisan = [...nonpartisanMap.entries()]
+    .filter(([, total]) => total > 0)
+    .map(([office, total]) => ({ office, total, section: 'nonpartisan' }))
+    .sort((a, b) => b.total - a.total)
+  return [...partisan, ...nonpartisan]
 }
 
 function RolloffPanel({ label, color, offices }) {
@@ -51,13 +60,14 @@ function RolloffPanel({ label, color, offices }) {
     return (
       <div className="bg-navy-800/60 rounded-lg p-4">
         <div className="stat-label mb-2" style={{ color }}>{label}</div>
-        <p className="text-xs text-slate-500">Fewer than 2 statewide races found.</p>
+        <p className="text-xs text-slate-500">Fewer than 2 contests found.</p>
       </div>
     )
   }
-  const top    = offices[0]
-  const bottom = offices[offices.length - 1]
-  const pct    = ((top.total - bottom.total) / top.total) * 100
+  const top            = offices[0]
+  const bottom         = offices[offices.length - 1]
+  const pct            = ((top.total - bottom.total) / top.total) * 100
+  const hasNonpartisan = offices.some(o => o.section === 'nonpartisan')
 
   return (
     <div className="space-y-3">
@@ -71,7 +81,12 @@ function RolloffPanel({ label, color, offices }) {
           <div className="text-xs text-slate-500 mt-0.5">votes</div>
         </div>
         <div className="bg-navy-800/60 rounded-lg p-4">
-          <div className="stat-label mb-1">Bottom Race</div>
+          <div className="stat-label mb-1">
+            Bottom Race
+            {bottom.section === 'nonpartisan' && (
+              <span className="ml-2 text-amber-500/70 font-normal text-xs">· Nonpartisan</span>
+            )}
+          </div>
           <div className="text-slate-200 font-medium text-sm">{bottom.office}</div>
           <div className="text-2xl font-bold text-slate-100 mt-1">{fmt.number(bottom.total)}</div>
           <div className="text-xs text-slate-500 mt-0.5">votes</div>
@@ -84,10 +99,15 @@ function RolloffPanel({ label, color, offices }) {
         <div className="mt-2 font-mono text-xs text-slate-500 bg-navy-900/60 rounded px-3 py-2 inline-block">
           ({fmt.number(top.total)} − {fmt.number(bottom.total)}) / {fmt.number(top.total)} = {pct.toFixed(4)}
         </div>
+        {hasNonpartisan && (
+          <p className="text-xs text-amber-600/60 mt-2">
+            Includes nonpartisan/judicial section — roll-off measured continuously from top partisan baseline.
+          </p>
+        )}
       </div>
 
       <div>
-        <div className="text-xs text-slate-500 mb-2">All {label} statewide offices ({offices.length})</div>
+        <div className="text-xs text-slate-500 mb-2">Full ballot sequence — {offices.length} contests</div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
@@ -99,13 +119,25 @@ function RolloffPanel({ label, color, offices }) {
             </thead>
             <tbody>
               {offices.map((r, i) => {
-                const rowPct = top.total > 0 ? ((top.total - r.total) / top.total) * 100 : 0
+                const prev       = i > 0 ? offices[i - 1] : null
+                const showSep    = r.section === 'nonpartisan' && (!prev || prev.section === 'partisan')
+                const rowPct     = top.total > 0 ? ((top.total - r.total) / top.total) * 100 : 0
+                const rowColor   = i === 0 ? 'text-slate-200' : r.section === 'nonpartisan' ? 'text-amber-300/70' : 'text-slate-400'
                 return (
-                  <tr key={r.office} className={`border-b border-navy-700 ${i === 0 ? 'text-slate-200' : 'text-slate-400'}`}>
-                    <td className="py-2 pr-4">{r.office}</td>
-                    <td className="py-2 pr-4 text-right font-mono">{fmt.number(r.total)}</td>
-                    <td className="py-2 text-right font-mono">{i === 0 ? '—' : `${rowPct.toFixed(2)}%`}</td>
-                  </tr>
+                  <Fragment key={r.office}>
+                    {showSep && (
+                      <tr>
+                        <td colSpan={3} className="py-1.5 px-2 text-xs text-amber-500/80 border-t border-amber-800/40 bg-amber-900/10">
+                          ↓ Nonpartisan General Election
+                        </td>
+                      </tr>
+                    )}
+                    <tr className={`border-b border-navy-700 ${rowColor}`}>
+                      <td className="py-2 pr-4">{r.office}</td>
+                      <td className="py-2 pr-4 text-right font-mono">{fmt.number(r.total)}</td>
+                      <td className="py-2 text-right font-mono">{i === 0 ? '—' : `${rowPct.toFixed(2)}%`}</td>
+                    </tr>
+                  </Fragment>
                 )
               })}
             </tbody>
@@ -139,9 +171,9 @@ export default function DataValidationTab() {
     })
   }, [elections, targetYear, selectedCounty])
 
-  // Separate R and D maps — never mix votes across party ballots
-  const statewideR = useMemo(() => toStatewideList(buildOfficeMap(recs, 'Republican')), [recs])
-  const statewideD = useMemo(() => toStatewideList(buildOfficeMap(recs, 'Democratic')), [recs])
+  // Full ballot sequences — partisan races followed by nonpartisan section, never mixed across parties
+  const ballotSeqR = useMemo(() => buildBallotSequence(recs, 'Republican'), [recs])
+  const ballotSeqD = useMemo(() => buildBallotSequence(recs, 'Democratic'), [recs])
 
   // Party-universe audit — scoped to records that feed the current view only.
   // Blank-party records go to the nonpartisan (N) pool; they never enter R or D
@@ -245,11 +277,11 @@ export default function DataValidationTab() {
           Roll-Off Validation — {targetYear}{selectedCounty !== 'All' ? ` · ${selectedCounty} County` : ' · Statewide'}
         </div>
         <div className={ballot === 'Both' ? 'space-y-8' : ''}>
-          {showR && <RolloffPanel label="Republican Ballot" color="#ef4444" offices={statewideR} />}
-          {ballot === 'Both' && statewideR.length >= 2 && statewideD.length >= 2 && (
+          {showR && <RolloffPanel label="Republican Ballot" color="#ef4444" offices={ballotSeqR} />}
+          {ballot === 'Both' && ballotSeqR.length >= 2 && ballotSeqD.length >= 2 && (
             <hr className="border-navy-600" />
           )}
-          {showD && <RolloffPanel label="Democratic Ballot" color="#3b82f6" offices={statewideD} />}
+          {showD && <RolloffPanel label="Democratic Ballot" color="#3b82f6" offices={ballotSeqD} />}
         </div>
       </div>
 
