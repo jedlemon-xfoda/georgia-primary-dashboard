@@ -9,6 +9,7 @@ import ParticipationTab from './components/tabs/ParticipationTab.jsx'
 import AnomalyTab      from './components/tabs/AnomalyTab.jsx'
 import RolloffTab      from './components/tabs/RolloffTab.jsx'
 import RaceExplorerTab from './components/tabs/RaceExplorerTab.jsx'
+import DataValidationTab from './components/tabs/DataValidationTab.jsx'
 import MethodologyTab  from './components/tabs/MethodologyTab.jsx'
 import DataImport      from './components/import/DataImport.jsx'
 import useElectionStore from './store/electionStore.js'
@@ -56,6 +57,7 @@ export default function App() {
           <Route path="/anomalies"    element={<PageWrapper><AnomalyTab /></PageWrapper>} />
           <Route path="/rolloff"      element={<PageWrapper><RolloffTab /></PageWrapper>} />
           <Route path="/races"        element={<PageWrapper><RaceExplorerTab /></PageWrapper>} />
+          <Route path="/validation"   element={<PageWrapper><DataValidationTab /></PageWrapper>} />
           <Route path="/methodology"  element={<PageWrapper><MethodologyTab /></PageWrapper>} />
           <Route path="/import"       element={<PageWrapper><DataImport /></PageWrapper>} />
           <Route path="*"             element={<PageWrapper><StatewideTab /></PageWrapper>} />

@@ -8,6 +8,7 @@ const TABS = [
   { id: 'anomalies',     path: '/anomalies',     label: 'Anomaly Report' },
   { id: 'rolloff',       path: '/rolloff',       label: 'Ballot Roll-Off' },
   { id: 'races',         path: '/races',         label: 'Race Explorer' },
+  { id: 'validation',   path: '/validation',    label: 'Data Validation' },
   { id: 'methodology',  path: '/methodology',   label: 'Methodology' },
   { id: 'import',        path: '/import',        label: 'Import Data' },
 ]

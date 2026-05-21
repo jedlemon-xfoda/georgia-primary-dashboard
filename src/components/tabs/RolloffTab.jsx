@@ -61,7 +61,7 @@ function shortLabel(office) {
 function normalizeOfficeName(office) {
   if (!office) return office
   return office
-    .replace(/\s*[-–—]\s*(republican|democratic|democrat|nonpartisan|libertarian|gop)\s*(primary|ballot|party|ticket)?\s*$/i, '')
+    .replace(/\s*[-–—]\s*(republican|democratic|democrat|nonpartisan|libertarian|gop|rep|dem)\s*(primary|ballot|party|ticket)?\s*$/i, '')
     .replace(/\s*\((r|d|rep|dem|republican|democratic)\)\s*$/i, '')
     .trim()
 }
@@ -240,10 +240,11 @@ export default function RolloffTab() {
     const scopeBaselines = new Map()
     for (const r of validOffices) {
       if (!scopeBaselines.has(r.scopeKey))
-        scopeBaselines.set(r.scopeKey, { topR: 0, topD: 0, topT: 0, topRaceR: '', topRaceD: '', topRaceT: '' })
+        scopeBaselines.set(r.scopeKey, { topR: 0, topD: 0, topN: 0, topT: 0, topRaceR: '', topRaceD: '', topRaceN: '', topRaceT: '' })
       const b = scopeBaselines.get(r.scopeKey)
       if (r.R     > b.topR) { b.topR = r.R;     b.topRaceR = r.office }
       if (r.D     > b.topD) { b.topD = r.D;     b.topRaceD = r.office }
+      if (r.N     > b.topN) { b.topN = r.N;     b.topRaceN = r.office }
       if (r.total > b.topT) { b.topT = r.total; b.topRaceT = r.office }
     }
 
@@ -256,6 +257,7 @@ export default function RolloffTab() {
           shortOffice:  row.office.replace('U.S. ', '').replace('Secretary of ', 'SoS ').slice(0, 18),
           rRolloff:     row.R > 0 && b.topR > 0 ? (1 - row.R / b.topR) * 100 : null,
           dRolloff:     row.D > 0 && b.topD > 0 ? (1 - row.D / b.topD) * 100 : null,
+          nRolloff:     row.N > 0 && b.topN > 0 ? (1 - row.N / b.topN) * 100 : null,
           totalRolloff: b.topT > 0 ? (1 - row.total / b.topT) * 100 : 0,
         }
       })
@@ -389,6 +391,18 @@ export default function RolloffTab() {
   const displayData = useMemo(() => {
     return displayLimit === 'all' ? filteredPool : filteredPool.slice(0, Number(displayLimit))
   }, [filteredPool, displayLimit])
+
+  // When party === 'Both', split into independent ballot universes so R and D are never compared.
+  const limit = displayLimit === 'all' ? Infinity : Number(displayLimit)
+  const rPool = party === 'Both'
+    ? filteredPool.filter(r => r.R > 0).sort((a, b) => (b.rRolloff ?? -1) - (a.rRolloff ?? -1)).slice(0, limit)
+    : []
+  const dPool = party === 'Both'
+    ? filteredPool.filter(r => r.D > 0).sort((a, b) => (b.dRolloff ?? -1) - (a.dRolloff ?? -1)).slice(0, limit)
+    : []
+  const nPool = party === 'Both'
+    ? filteredPool.filter(r => r.N > 0 && r.R === 0 && r.D === 0).sort((a, b) => (b.nRolloff ?? -1) - (a.nRolloff ?? -1)).slice(0, limit)
+    : []
 
   const insights = useMemo(() => {
     const base = rolloffData
@@ -547,50 +561,95 @@ export default function RolloffTab() {
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
-            {/* Main roll-off chart — horizontal bars, sorted by severity */}
-            <div className="card xl:col-span-2">
-              <div className="flex items-center justify-between mb-1">
-                <div className="section-title">
-                  {displayLimit === 'all'
-                    ? `All ${filteredPool.length} Contests`
-                    : `Top ${displayData.length} of ${filteredPool.length} Contests`} — {targetYear}
-                  <span className="ml-2 text-slate-500 font-normal text-xs">· {SCOPE_LABELS[selectedScope] ?? 'All Scopes'}{selectedCategory !== 'All' ? ` · ${selectedCategory}` : ''}</span>
+            {/* Main roll-off chart — split by ballot universe when Both is selected */}
+            {party === 'Both' ? (
+              <>
+                {[
+                  { label: 'Republican Ballot Roll-Off', pool: rPool, key: 'rRolloff', accent: '#ef4444' },
+                  { label: 'Democratic Ballot Roll-Off', pool: dPool, key: 'dRolloff', accent: '#3b82f6' },
+                  ...(nPool.length > 0 ? [{ label: 'Nonpartisan / Judicial Roll-Off', pool: nPool, key: 'nRolloff', accent: '#a78bfa' }] : []),
+                ].map(({ label, pool, key, accent }) => (
+                  <div key={key} className="card xl:col-span-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="section-title">
+                        {label} — {targetYear}
+                        <span className="ml-2 text-slate-500 font-normal text-xs">· {SCOPE_LABELS[selectedScope] ?? 'All Scopes'}</span>
+                      </div>
+                      <div className="flex gap-3 text-xs text-slate-500">
+                        <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-red-500"/>≥ 30%</span>
+                        <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-orange-500"/>≥ 20%</span>
+                        <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-amber-500"/>≥ 10%</span>
+                        <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-indigo-500"/>≥ 3%</span>
+                        <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-emerald-500"/>&lt; 3%</span>
+                      </div>
+                    </div>
+                    {pool.length === 0 ? (
+                      <p className="text-slate-500 text-sm py-8 text-center">No races in this ballot universe match current filters.</p>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={Math.max(200, pool.length * 32 + 20)}>
+                        <BarChart data={pool} layout="vertical" margin={{ top: 4, right: 60, bottom: 4, left: 180 }}>
+                          <CartesianGrid {...GRID} horizontal={false} />
+                          <XAxis type="number" tickFormatter={v => `${v.toFixed(0)}%`} tick={AXIS} domain={[0, 'dataMax + 2']} />
+                          <YAxis type="category" dataKey="displayOffice" tick={{ ...AXIS, fontSize: 10 }} width={175} />
+                          <Tooltip content={<RolloffTooltip />} />
+                          <Bar dataKey={key} name={label} radius={[0, 3, 3, 0]} label={{ position: 'right', fontSize: 10, fill: '#94a3b8', formatter: v => v != null && v > 0 ? `${Number(v).toFixed(1)}%` : '' }}>
+                            {pool.map((r, i) => (
+                              <Cell key={i} fill={rolloffColor(r[key])} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                    <p className="text-xs text-slate-500 mt-2">
+                      Roll-off % = (top race votes − race votes) / top race votes × 100. Races within this ballot universe only — Republican, Democratic, and Nonpartisan contests are never compared against each other.
+                    </p>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <div className="card xl:col-span-2">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="section-title">
+                    {displayLimit === 'all'
+                      ? `All ${filteredPool.length} Contests`
+                      : `Top ${displayData.length} of ${filteredPool.length} Contests`} — {targetYear}
+                    <span className="ml-2 text-slate-500 font-normal text-xs">· {SCOPE_LABELS[selectedScope] ?? 'All Scopes'}{selectedCategory !== 'All' ? ` · ${selectedCategory}` : ''}</span>
+                  </div>
+                  <div className="flex gap-3 text-xs text-slate-500">
+                    <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-red-500"/>≥ 30%</span>
+                    <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-orange-500"/>≥ 20%</span>
+                    <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-amber-500"/>≥ 10%</span>
+                    <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-indigo-500"/>≥ 3%</span>
+                    <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-emerald-500"/>&lt; 3%</span>
+                  </div>
                 </div>
-                <div className="flex gap-3 text-xs text-slate-500">
-                  <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-red-500"/>≥ 30%</span>
-                  <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-orange-500"/>≥ 20%</span>
-                  <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-amber-500"/>≥ 10%</span>
-                  <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-indigo-500"/>≥ 3%</span>
-                  <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-emerald-500"/>&lt; 3%</span>
-                </div>
-              </div>
-
-              {displayData.length === 0 ? (
-                <p className="text-slate-500 text-sm py-8 text-center">No races match the current filters.</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={chartHeight}>
-                  <BarChart data={displayData} layout="vertical" margin={{ top: 4, right: 60, bottom: 4, left: 180 }}>
-                    <CartesianGrid {...GRID} horizontal={false} />
-                    <XAxis type="number" tickFormatter={v => `${v.toFixed(0)}%`} tick={AXIS} domain={[0, 'dataMax + 2']} />
-                    <YAxis type="category" dataKey="displayOffice" tick={{ ...AXIS, fontSize: 10 }} width={175} />
-                    <Tooltip content={<RolloffTooltip />} />
-                    <Bar dataKey={rolloffKey} name={rolloffLabel} radius={[0, 3, 3, 0]} label={{ position: 'right', fontSize: 10, fill: '#94a3b8', formatter: v => v > 0 ? `${Number(v).toFixed(1)}%` : '' }}>
-                      {displayData.map((r, i) => (
-                        <Cell key={i} fill={rolloffColor(r[rolloffKey])} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-              <p className="text-xs text-slate-500 mt-2">
-                Roll-off % = (top race votes − race votes) / top race votes × 100. Roll-off compares contests with similar voter eligibility — statewide races are never compared against district-limited races.
-                {displayData.length < filteredPool.length && (
-                  <span className="text-slate-600 ml-1">
-                    Showing {displayData.length} of {filteredPool.length} contests — increase the limit to see more.
-                  </span>
+                {displayData.length === 0 ? (
+                  <p className="text-slate-500 text-sm py-8 text-center">No races match the current filters.</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={chartHeight}>
+                    <BarChart data={displayData} layout="vertical" margin={{ top: 4, right: 60, bottom: 4, left: 180 }}>
+                      <CartesianGrid {...GRID} horizontal={false} />
+                      <XAxis type="number" tickFormatter={v => `${v.toFixed(0)}%`} tick={AXIS} domain={[0, 'dataMax + 2']} />
+                      <YAxis type="category" dataKey="displayOffice" tick={{ ...AXIS, fontSize: 10 }} width={175} />
+                      <Tooltip content={<RolloffTooltip />} />
+                      <Bar dataKey={rolloffKey} name={rolloffLabel} radius={[0, 3, 3, 0]} label={{ position: 'right', fontSize: 10, fill: '#94a3b8', formatter: v => v > 0 ? `${Number(v).toFixed(1)}%` : '' }}>
+                        {displayData.map((r, i) => (
+                          <Cell key={i} fill={rolloffColor(r[rolloffKey])} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
                 )}
-              </p>
-            </div>
+                <p className="text-xs text-slate-500 mt-2">
+                  Roll-off % = (top race votes − race votes) / top race votes × 100. Roll-off compares contests with similar voter eligibility — statewide races are never compared against district-limited races.
+                  {displayData.length < filteredPool.length && (
+                    <span className="text-slate-600 ml-1">
+                      Showing {displayData.length} of {filteredPool.length} contests — increase the limit to see more.
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
 
             {/* Total votes by race — existing chart, filtered to display set */}
             <div className="card xl:col-span-2">
