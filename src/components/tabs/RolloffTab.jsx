@@ -108,7 +108,7 @@ function classifyScope(office) {
 
   // ── Judicial — broad pattern before statewide/other matching ────────────────
   const judicialPattern =
-    /(judge|justice|court|appeal|judicial|magistrate|probate|superior|juvenile|state court|supreme)/i
+    /(judge|justice|court|appeal|magistrate|probate|superior|juvenile|state court|supreme)/i
   if (judicialPattern.test(office))
     return { scope: 'judicial', scopeKey: 'judicial' }
 
